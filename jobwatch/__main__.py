@@ -28,14 +28,6 @@ from .state import load_seen, save_seen
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# meta blocks requests that look like bots, so look like a normal browser
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/129.0 Safari/537.36",
-    "Accept-Language": "en-US,en;q=0.9",
-}
-
-
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description="ping me about relevant meta internships")
     p.add_argument("--state", default=str(ROOT / "data" / "seen.json"))
@@ -57,8 +49,8 @@ def now():
 
 
 def run(args, session=None):
+    # headers are handled per request in fetch.py
     s = session or requests.Session()
-    s.headers.update(HEADERS)
 
     webhook = None if args.dry_run else os.environ.get("DISCORD_WEBHOOK_URL")
     api_key = os.environ.get("GEMINI_API_KEY")

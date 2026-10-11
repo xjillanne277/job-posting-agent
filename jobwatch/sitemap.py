@@ -10,6 +10,8 @@ job ids, and anything i havent seen before is a new posting.
 import re
 import xml.etree.ElementTree as ET
 
+from .fetch import get
+
 SITEMAP_URL = "https://www.metacareers.com/jobsearch/sitemap.xml"
 
 # job links look like .../profile/job_details/1288834486094873/
@@ -44,7 +46,7 @@ def job_id_from_url(url):
 
 def fetch_job_ids(session, url=SITEMAP_URL, _depth=0):
     """{job_id: job_url} for every posting currently listed"""
-    resp = session.get(url, timeout=30)
+    resp = get(session, url)
     resp.raise_for_status()
 
     job_urls, children = parse_sitemap(resp.content)

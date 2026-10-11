@@ -11,6 +11,7 @@ FIX = Path(__file__).parent / "fixtures"
 class FakeResp:
     def __init__(self, content):
         self.content = content
+        self.status_code = 200
 
     def raise_for_status(self):
         pass
@@ -22,7 +23,7 @@ class FakeSession:
     def __init__(self, pages):
         self.pages = pages
 
-    def get(self, url, timeout=None):
+    def get(self, url, timeout=None, headers=None):
         return FakeResp(self.pages[url])
 
 

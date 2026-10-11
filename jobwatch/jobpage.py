@@ -14,6 +14,8 @@ import re
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 
+from .fetch import get
+
 SKIP_TAGS = {"style", "noscript", "svg"}
 MAX_DESC_CHARS = 6000  # dont need to send the llm a novel
 
@@ -155,6 +157,6 @@ def parse_job_page(job_id, url, page_html):
 
 
 def fetch_job(session, job_id, url):
-    resp = session.get(url, timeout=30)
+    resp = get(session, url)
     resp.raise_for_status()
     return parse_job_page(job_id, url, resp.text)

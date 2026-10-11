@@ -38,7 +38,7 @@ class FakeMeta:
         self.opened = []
         self.posts = []
 
-    def get(self, url, timeout=None):
+    def get(self, url, timeout=None, headers=None):
         self.opened.append(url)
         return Resp(self.pages[url])
 
@@ -97,7 +97,7 @@ class MainTests(unittest.TestCase):
     def test_failed_page_retried_next_time(self):
         save_seen(self.state, {"1288834486094873": "x"})
         site = FakeMeta()
-        site.get = lambda url, timeout=None: Resp(site.pages[SITEMAP]) if url == SITEMAP else Resp(b"", 500)
+        site.get = lambda url, timeout=None, headers=None: Resp(site.pages[SITEMAP]) if url == SITEMAP else Resp(b"", 500)
         stats = run(self.args(), session=site)
         self.assertEqual(stats["errors"], 1)
         self.assertNotIn("998357492128826", load_seen(self.state))
