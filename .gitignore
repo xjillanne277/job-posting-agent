@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# seen-jobs state lives here, github actions caches it so it doesnt need to be committed
+data/
