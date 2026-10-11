@@ -1,0 +1,66 @@
+name: check meta internships
+
+on:
+  schedule:
+    # every 3 hrs. github cron is in UTC and can run a bit late when its busy
+    - cron: "23 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: "also check postings that were already up (only matters on the first run)"
+        type: boolean
+        default: false
+      test_ping:
+        description: "just send a test message to discord"
+        type: boolean
+        default: false
+
+# dont let two runs overlap and fight over the seen list
+concurrency:
+  group: jobwatch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: run tests
+        run: python -m unittest -q
+
+      # the list of jobs ive already seen lives in the actions cache instead of
+      # being committed back to the repo (no bot commits cluttering my history)
+      - name: restore seen jobs
+        uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: seen-${{ github.run_id }}
+          restore-keys: seen-
+
+      - name: check for new postings
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          MIN_SCORE: ${{ vars.MIN_SCORE }}
+        run: |
+          flags=""
+          if [ "${{ inputs.backfill }}" = "true" ]; then flags="--backfill"; fi
+          if [ "${{ inputs.test_ping }}" = "true" ]; then flags="--test-ping"; fi
+          python -m jobwatch $flags
+
+      - name: save seen jobs
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data
+          key: seen-${{ github.run_id }}
