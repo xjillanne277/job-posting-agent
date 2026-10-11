@@ -63,7 +63,7 @@ def keyword_judge(job):
     hit = HARDWARE_RE.search(job.title + " " + job.description)
     return {
         "score": 6 if hit else 2,
-        "why": "llm was down so this is just a keyword match"
+        "why": "no llm this time (no key or it errored) so this is just a keyword match"
         + (f' (matched "{hit.group(0)}")' if hit else ""),
         "growth": "",
         "used_llm": False,
