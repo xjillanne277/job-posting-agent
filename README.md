@@ -46,7 +46,7 @@ profile.md     what i'm looking for (edit this!)
 3. **repo secrets:** settings -> secrets and variables -> actions -> add
    `DISCORD_WEBHOOK_URL` and `GEMINI_API_KEY`.
    optional *variables* (not secrets): `MIN_SCORE` (default 6), `GEMINI_MODEL`
-   (default `gemini-2.5-flash`).
+   (default `gemini-3.8-flash`, it switches to another flash model on its own if that one's gone or overloaded).
 4. **test it:** actions tab -> "check meta internships" -> run workflow -> tick
    `test_ping`. you should get a discord message.
 5. **first real run:** run it again with nothing ticked. the first run just remembers

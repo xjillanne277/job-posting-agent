@@ -70,7 +70,7 @@ def keyword_judge(job):
     }
 
 
-def judge(job, profile, api_key=None, model="gemini-2.5-flash", session=None):
+def judge(job, profile, api_key=None, model="gemini-3.8-flash", session=None):
     if not api_key:
         return keyword_judge(job)
     try:

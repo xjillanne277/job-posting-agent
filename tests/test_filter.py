@@ -70,6 +70,7 @@ class FilterTests(unittest.TestCase):
     def test_404_switches_model(self):
         from jobwatch import llm
         llm._resolved.clear()
+        llm._ranked = None
         s = mock.Mock()
         s.post.side_effect = [FakeResp(404, {"error": "not found"}), gemini_says({"score": 8, "why": "ok", "growth": ""})]
         s.get.return_value = FakeResp(200, {"models": [
@@ -78,6 +79,26 @@ class FilterTests(unittest.TestCase):
         self.assertEqual(v["score"], 8)
         self.assertIn("gemini-3-flash:generateContent", s.post.call_args[0][0])
         llm._resolved.clear()
+        llm._ranked = None
+
+    def test_overloaded_model_falls_to_next(self):
+        from jobwatch import llm
+        llm._resolved.clear()
+        llm._ranked = None
+        s = mock.Mock()
+        # main model 503s every retry, then the lite one works
+        s.post.side_effect = [FakeResp(503, {})] * 3 + [gemini_says({"score": 7, "why": "ok", "growth": ""})]
+        s.get.return_value = FakeResp(200, {"models": [
+            {"name": "models/gemini-3.8-flash", "supportedGenerationMethods": ["generateContent"]},
+            {"name": "models/gemini-3.8-flash-lite", "supportedGenerationMethods": ["generateContent"]}]})
+        with mock.patch("jobwatch.llm.time.sleep"):
+            v = f.judge(job("PDE Intern"), "profile", api_key="k", model="gemini-3.8-flash", session=s)
+        self.assertEqual(v["score"], 7)
+        self.assertIn("gemini-3.8-flash-lite", s.post.call_args[0][0])
+        # next call should go straight to the one that worked
+        self.assertEqual(llm._resolved["gemini-3.8-flash"], "gemini-3.8-flash-lite")
+        llm._resolved.clear()
+        llm._ranked = None
 
     def test_llm_failure_falls_back(self):
         with mock.patch.object(f, "ask_gemini", side_effect=LLMError("nope")):

@@ -7,7 +7,7 @@ the actual loop:  python -m jobwatch
 settings come from env vars so i can keep secrets out of the repo:
   DISCORD_WEBHOOK_URL   where pings go (if missing it just prints)
   GEMINI_API_KEY        for scoring (if missing it falls back to keywords)
-  GEMINI_MODEL          default gemini-2.5-flash
+  GEMINI_MODEL          default gemini-3.8-flash
   MIN_SCORE             only ping at or above this, default 6
 """
 
@@ -66,7 +66,7 @@ def run(args, session=None):
 
     webhook = None if args.dry_run else os.environ.get("DISCORD_WEBHOOK_URL")
     api_key = os.environ.get("GEMINI_API_KEY")
-    model = os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"
+    model = os.environ.get("GEMINI_MODEL") or "gemini-3.8-flash"
     min_score = int(os.environ.get("MIN_SCORE") or 6)
 
     def say(msg):
