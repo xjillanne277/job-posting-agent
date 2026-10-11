@@ -115,6 +115,18 @@ class MainTests(unittest.TestCase):
         self.assertEqual(stats["queued"], 1)
         self.assertFalse((self.state.parent / "backfill_pending").exists())
 
+    def test_gemini_failing_doesnt_ping_or_mark_checked(self):
+        from jobwatch.llm import LLMError
+        save_seen(self.state, {"1288834486094873": "x"})
+        site = FakeMeta()
+        with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}), \
+             mock.patch("jobwatch.filter.ask_gemini", side_effect=LLMError("gemini 400: bad key")):
+            stats = run(self.args(), session=site)
+        self.assertEqual(stats["pinged"], 0)
+        self.assertNotIn("998357492128826", load_seen(self.state))
+        # but i should get told about it
+        self.assertIn("gemini isnt working", site.posts[0][1]["json"]["content"])
+
     def test_failed_page_retried_next_time(self):
         save_seen(self.state, {"1288834486094873": "x"})
         site = FakeMeta()

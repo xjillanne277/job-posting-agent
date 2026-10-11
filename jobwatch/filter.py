@@ -76,8 +76,10 @@ def judge(job, profile, api_key=None, model="gemini-2.5-flash", session=None):
     try:
         out = ask_gemini(build_prompt(job, profile), api_key, model, session=session)
     except LLMError as e:
-        print(f"  llm failed on {job.id}: {e}")
-        return keyword_judge(job)
+        # main decides what to do with this (usually: dont ping, retry next run)
+        v = keyword_judge(job)
+        v["llm_error"] = str(e)
+        return v
 
     # dont fully trust the llm to follow the format
     try:

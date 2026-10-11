@@ -71,7 +71,8 @@ def run(args, session=None):
         return {"pinged": 0}
 
     if not api_key:
-        print("no GEMINI_API_KEY, using keyword matching instead of the llm")
+        # ::warning:: makes it show up on the run summary page in github
+        print("::warning::no GEMINI_API_KEY set, using keyword matching instead of the llm")
 
     profile = Path(args.profile).read_text()
     current = fetch_job_ids(s)
@@ -81,7 +82,9 @@ def run(args, session=None):
     print(f"{len(current)} postings on the sitemap")
 
     state_dir = Path(args.state).parent
-    checked_path = state_dir / "checked.json"      # ids whose page i actually opened + judged
+    # ids whose page i actually opened + judged. (v2 because the first backfill
+    # ran with gemini broken and keyword-scored everything, so starting fresh)
+    checked_path = state_dir / "checked_v2.json"
     backfill_flag = state_dir / "backfill_pending"  # exists while a backfill is still going
 
     seen = load_seen(args.state)
@@ -119,6 +122,7 @@ def run(args, session=None):
 
     stats = {"new": len(new_ids), "queued": len(queue), "opened": 0, "internships": 0, "judged": 0, "pinged": 0, "errors": 0}
     llm_calls = 0
+    llm_fails = 0
 
     try:
         for jid in queue:
@@ -158,6 +162,19 @@ def run(args, session=None):
                 break
 
             verdict = judge(job, profile, api_key=api_key, model=model, session=s)
+            if verdict.get("llm_error"):
+                # gemini broke. dont ping off keywords and dont mark it checked,
+                # just leave it for the next run so it gets a real score
+                llm_fails += 1
+                stats["errors"] += 1
+                if llm_fails == 1:
+                    print(f"::error::gemini failed: {verdict['llm_error']}")
+                    say(f"⚠️ gemini isnt working so i'm holding off on scoring for now: "
+                        f"{verdict['llm_error'][:300]}")
+                if llm_fails >= 3:
+                    print("gemini failed 3 times, stopping this run")
+                    break
+                continue
             if verdict.get("used_llm"):
                 llm_calls += 1
                 time.sleep(args.llm_delay)
