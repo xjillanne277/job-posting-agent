@@ -33,12 +33,14 @@ def parse_args(argv=None):
     p.add_argument("--state", default=str(ROOT / "data" / "seen.json"))
     p.add_argument("--profile", default=str(ROOT / "profile.md"))
     p.add_argument("--backfill", action="store_true",
-                   help="on the very first run, actually check whats already posted instead of just "
-                        "remembering it (slow, goes in batches of --max-pages per run)")
+                   help="also go back through postings that were already up. it does --max-pages per "
+                        "run and keeps going on the scheduled runs until its checked everything")
     p.add_argument("--max-pages", type=int, default=150,
                    help="max job pages to open per run so i dont hammer their site")
     p.add_argument("--max-llm", type=int, default=40, help="max llm calls per run (free tier limits)")
     p.add_argument("--delay", type=float, default=1.0, help="seconds between page requests")
+    p.add_argument("--llm-delay", type=float, default=4.0,
+                   help="seconds between llm calls, free tier only allows a few per minute")
     p.add_argument("--dry-run", action="store_true", help="print instead of sending to discord")
     p.add_argument("--test-ping", action="store_true", help="just send a test message to discord and quit")
     return p.parse_args(argv)
@@ -78,13 +80,25 @@ def run(args, session=None):
         raise SystemExit("sitemap had 0 jobs in it?? something changed on meta's end")
     print(f"{len(current)} postings on the sitemap")
 
+    state_dir = Path(args.state).parent
+    checked_path = state_dir / "checked.json"      # ids whose page i actually opened + judged
+    backfill_flag = state_dir / "backfill_pending"  # exists while a backfill is still going
+
     seen = load_seen(args.state)
     first_run = seen is None
     seen = seen or {}
+    checked = load_seen(checked_path) or {}
+
+    if args.backfill and not backfill_flag.exists():
+        state_dir.mkdir(parents=True, exist_ok=True)
+        backfill_flag.touch()
+        say(f"starting a backfill, going through postings that were already up "
+            f"({args.max_pages} per run, so it'll take a few runs) 🔍")
+    backfilling = backfill_flag.exists()
 
     # first run: theres ~1000 postings already up and i dont want 1000 pings,
     # so just remember them all. from then on only new ones get checked
-    if first_run and not args.backfill:
+    if first_run and not backfilling:
         stamp = now()
         for jid in current:
             seen[jid] = stamp
@@ -96,11 +110,18 @@ def run(args, session=None):
     new_ids = [jid for jid in current if jid not in seen]
     print(f"{len(new_ids)} new since last time")
 
-    stats = {"new": len(new_ids), "opened": 0, "internships": 0, "judged": 0, "pinged": 0, "errors": 0}
+    # new stuff goes first, then the old postings ive never actually looked at
+    queue = list(new_ids)
+    if backfilling:
+        old_unchecked = [jid for jid in current if jid in seen and jid not in checked]
+        print(f"backfill: {len(old_unchecked)} older postings left to check")
+        queue += old_unchecked
+
+    stats = {"new": len(new_ids), "queued": len(queue), "opened": 0, "internships": 0, "judged": 0, "pinged": 0, "errors": 0}
     llm_calls = 0
 
     try:
-        for jid in new_ids:
+        for jid in queue:
             if stats["opened"] >= args.max_pages:
                 print("hit --max-pages, the rest will get checked next run")
                 break
@@ -110,7 +131,7 @@ def run(args, session=None):
                 job = fetch_job(s, jid, url)
             except requests.HTTPError as e:
                 if e.response is not None and e.response.status_code == 404:
-                    seen[jid] = now()  # posting already gone, skip it forever
+                    seen[jid] = checked[jid] = now()  # posting already gone, skip it forever
                 else:
                     print(f"  couldnt load {url}: {e}")  # try again next run
                     stats["errors"] += 1
@@ -127,7 +148,7 @@ def run(args, session=None):
                 print(f"  no title found for {url}, page layout might have changed")
 
             if not looks_like_internship(job):
-                seen[jid] = now()
+                seen[jid] = checked[jid] = now()
                 continue
             stats["internships"] += 1
 
@@ -139,6 +160,7 @@ def run(args, session=None):
             verdict = judge(job, profile, api_key=api_key, model=model, session=s)
             if verdict.get("used_llm"):
                 llm_calls += 1
+                time.sleep(args.llm_delay)
             stats["judged"] += 1
             print(f"  [{verdict['score']}/10] {job.title} -- {verdict['why']}")
 
@@ -149,10 +171,16 @@ def run(args, session=None):
                     print(f"  >>> would ping: {job.title} {job.url}")
                 stats["pinged"] += 1
 
-            seen[jid] = now()
+            seen[jid] = checked[jid] = now()
     finally:
         # save even if something crashes so i dont get double pinged next run
         save_seen(args.state, seen)
+        save_seen(checked_path, checked)
+
+    if backfilling and all(jid in checked for jid in current):
+        backfill_flag.unlink()
+        say("backfill done ✅ went through every posting that was already up, "
+            "back to just checking new ones")
 
     print("done:", ", ".join(f"{k}={v}" for k, v in stats.items()))
     return stats

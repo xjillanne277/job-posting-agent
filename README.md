@@ -51,8 +51,10 @@ profile.md     what i'm looking for (edit this!)
    `test_ping`. you should get a discord message.
 5. **first real run:** run it again with nothing ticked. the first run just remembers
    everything that's already posted (so i don't get 1000 pings), and every run after
-   that only looks at new stuff. tick `backfill` instead if you want it to go through
-   what's already up too (it does it in batches of 150 pages per run).
+   that only looks at new stuff.
+6. **backfill (optional):** run it with `backfill` ticked to go back through the
+   postings that were already up. it does 150 pages per run and keeps going on the
+   scheduled runs until it's done, then messages you that it finished.
 
 ## running locally
 

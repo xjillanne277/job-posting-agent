@@ -60,7 +60,7 @@ class MainTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def args(self, *extra):
-        return parse_args(["--state", str(self.state), "--delay", "0", *extra])
+        return parse_args(["--state", str(self.state), "--delay", "0", "--llm-delay", "0", *extra])
 
     def test_first_run_just_remembers_everything(self):
         site = FakeMeta()
@@ -93,6 +93,27 @@ class MainTests(unittest.TestCase):
         self.assertEqual(stats["opened"], 2)
         self.assertEqual(stats["internships"], 1)
         self.assertEqual(stats["pinged"], 1)
+
+    def test_backfill_after_already_seeded(self):
+        # this is the situation i was actually in: first run already remembered everything
+        run(self.args(), session=FakeMeta())
+        site = FakeMeta()
+        stats = run(self.args("--backfill"), session=site)
+        self.assertEqual(stats["new"], 0)
+        self.assertEqual(stats["queued"], 2)
+        self.assertEqual(stats["pinged"], 1)
+        # all done so the flag should be cleared and it should say so
+        self.assertFalse((self.state.parent / "backfill_pending").exists())
+        self.assertIn("backfill done", site.posts[-1][1]["json"]["content"])
+
+    def test_backfill_keeps_going_on_later_runs(self):
+        run(self.args(), session=FakeMeta())
+        run(self.args("--backfill", "--max-pages", "1"), session=FakeMeta())
+        self.assertTrue((self.state.parent / "backfill_pending").exists())
+        # next scheduled run doesnt pass --backfill but should still finish it
+        stats = run(self.args(), session=FakeMeta())
+        self.assertEqual(stats["queued"], 1)
+        self.assertFalse((self.state.parent / "backfill_pending").exists())
 
     def test_failed_page_retried_next_time(self):
         save_seen(self.state, {"1288834486094873": "x"})

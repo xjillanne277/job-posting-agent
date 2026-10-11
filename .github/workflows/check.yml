@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       backfill:
-        description: "also check postings that were already up (only matters on the first run)"
+        description: "go back through postings that were already up (keeps going on the next scheduled runs until done)"
         type: boolean
         default: false
       test_ping:
