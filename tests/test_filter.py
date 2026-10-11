@@ -60,6 +60,25 @@ class FilterTests(unittest.TestCase):
         _, kwargs = s.post.call_args
         self.assertEqual(kwargs["headers"]["x-goog-api-key"], "k")
 
+    def test_pick_model(self):
+        from jobwatch.llm import pick_model
+        models = ["models/gemini-2.0-flash", "models/gemini-3-flash", "models/gemini-3-flash-lite",
+                  "models/gemini-3-pro", "models/gemini-3-flash-image", "models/gemini-3.5-flash-preview"]
+        self.assertEqual(pick_model(models), "gemini-3-flash")
+        self.assertIsNone(pick_model(["models/gemini-3-pro"]))
+
+    def test_404_switches_model(self):
+        from jobwatch import llm
+        llm._resolved.clear()
+        s = mock.Mock()
+        s.post.side_effect = [FakeResp(404, {"error": "not found"}), gemini_says({"score": 8, "why": "ok", "growth": ""})]
+        s.get.return_value = FakeResp(200, {"models": [
+            {"name": "models/gemini-3-flash", "supportedGenerationMethods": ["generateContent"]}]})
+        v = f.judge(job("PDE Intern"), "profile", api_key="k", model="gemini-2.5-flash", session=s)
+        self.assertEqual(v["score"], 8)
+        self.assertIn("gemini-3-flash:generateContent", s.post.call_args[0][0])
+        llm._resolved.clear()
+
     def test_llm_failure_falls_back(self):
         with mock.patch.object(f, "ask_gemini", side_effect=LLMError("nope")):
             v = f.judge(job("Mechanical Engineer Intern"), "profile", api_key="k")

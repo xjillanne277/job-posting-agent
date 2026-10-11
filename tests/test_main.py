@@ -51,7 +51,8 @@ class MainTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.state = Path(self.tmp.name) / "seen.json"
-        env = {"DISCORD_WEBHOOK_URL": "https://hook", "GEMINI_API_KEY": "", "MIN_SCORE": "6"}
+        env = {"DISCORD_WEBHOOK_URL": "https://hook", "GEMINI_API_KEY": "", "MIN_SCORE": "6",
+               "GITHUB_ACTIONS": ""}  # so test runs dont spam annotations on the real run
         self.env = mock.patch.dict(os.environ, env)
         self.env.start()
 

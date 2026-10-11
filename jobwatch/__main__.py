@@ -46,6 +46,16 @@ def parse_args(argv=None):
     return p.parse_args(argv)
 
 
+def annotate(level, msg):
+    """::warning:: / ::error:: lines show up on the github run summary page,
+    which is way easier to read than digging through the full log"""
+    msg = " ".join(str(msg).split())
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::{level}::{msg}")
+    else:
+        print(f"{level}: {msg}")
+
+
 def now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -72,7 +82,7 @@ def run(args, session=None):
 
     if not api_key:
         # ::warning:: makes it show up on the run summary page in github
-        print("::warning::no GEMINI_API_KEY set, using keyword matching instead of the llm")
+        annotate("warning", "no GEMINI_API_KEY set, using keyword matching instead of the llm")
 
     profile = Path(args.profile).read_text()
     current = fetch_job_ids(s)
@@ -168,7 +178,7 @@ def run(args, session=None):
                 llm_fails += 1
                 stats["errors"] += 1
                 if llm_fails == 1:
-                    print(f"::error::gemini failed: {verdict['llm_error']}")
+                    annotate("error", f"gemini failed: {verdict['llm_error']}")
                     say(f"⚠️ gemini isnt working so i'm holding off on scoring for now: "
                         f"{verdict['llm_error'][:300]}")
                 if llm_fails >= 3:
