@@ -27,6 +27,12 @@ def gemini_says(obj):
 
 
 class FilterTests(unittest.TestCase):
+    def setUp(self):
+        # keep the test runs from posting fake notices on the real github run page
+        patcher = mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_internship_check(self):
         self.assertTrue(f.looks_like_internship(job("Mechanical Engineer Intern")))
         self.assertTrue(f.looks_like_internship(job("Product Design Engineer, Co-op")))

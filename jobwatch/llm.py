@@ -78,6 +78,9 @@ def _call(prompt, api_key, model, session, retries):
     for attempt in range(retries):
         try:
             r = session.post(GEMINI_URL.format(model=model), json=body, headers=headers, timeout=60)
+        except requests.Timeout:
+            # if its hanging for a whole minute its not worth waiting on 2 more times
+            raise _Unavailable(f"{model} timed out")
         except requests.RequestException as e:
             err = e
         else:
